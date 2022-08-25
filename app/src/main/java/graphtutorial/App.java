@@ -8,8 +8,8 @@ import java.util.InputMismatchException;
 import java.util.Properties;
 import java.util.Scanner;
 
-import com.microsoft.graph.models.Message;
-import com.microsoft.graph.models.User;
+import com.microsoft.graph.models.*;
+import com.microsoft.graph.requests.DriveItemCollectionPage;
 import com.microsoft.graph.requests.MessageCollectionPage;
 import com.microsoft.graph.requests.UserCollectionPage;
 
@@ -40,8 +40,8 @@ public class App {
             System.out.println("1. Display access token");
             System.out.println("2. List my inbox");
             System.out.println("3. Send mail");
-            System.out.println("4. List users (required app-only)");
-            System.out.println("5. Make a Graph call");
+            System.out.println("4. List Folders");
+            System.out.println("5. Get Excel File");
 
             try {
                 choice = input.nextInt();
@@ -52,7 +52,7 @@ public class App {
             input.nextLine();
 
             // Process user choice
-            switch(choice) {
+            switch (choice) {
                 case 0:
                     // Exit the program
                     System.out.println("Goodbye...");
@@ -70,12 +70,11 @@ public class App {
                     sendMail();
                     break;
                 case 4:
-                    // List users
-                    listUsers();
+                    // Run any Graph code
+                    listFolders();
                     break;
                 case 5:
-                    // Run any Graph code
-                    makeGraphCall();
+                    getExcelFile();
                     break;
                 default:
                     System.out.println("Invalid choice");
@@ -113,7 +112,7 @@ public class App {
             final MessageCollectionPage messages = Graph.getInbox();
 
             // Output each message's details
-            for (Message message: messages.getCurrentPage()) {
+            for (Message message : messages.getCurrentPage()) {
                 System.out.println("Message: " + message.subject);
                 System.out.println("  From: " + message.from.emailAddress.name);
                 System.out.println("  Status: " + (message.isRead ? "Read" : "Unread"));
@@ -132,21 +131,71 @@ public class App {
     }
 
     private static void sendMail() {
+        try {
+            // Send mail to the signed-in user
+            // Get the user for their email address
+            final User user = Graph.getUser();
+            final String email = user.mail == null ? user.userPrincipalName : user.mail;
+
+            Graph.sendMail("Testing Microsoft Graph", "Hello world!", email);
+            System.out.println("\nMail sent.");
+        } catch (Exception e) {
+            System.out.println("Error sending mail");
+            System.out.println(e.getMessage());
+        }
     }
 
-    private static void listUsers() {
+    private static void listFolders() {
+        try {
+            DriveItemCollectionPage result = Graph.listFolders();
+            for (DriveItem item : result.getCurrentPage()) {
+                System.out.println("Name: " + item.name);
+                System.out.println("ID: " + item.id);
+                System.out.println("Last Modified: " + item.lastModifiedDateTime + "\n");
+            }
+        } catch (Exception e) {
+            System.out.println("Error making Graph call");
+            System.out.println(e.getMessage());
+        }
     }
 
-    private static void makeGraphCall() {
+    private static void getExcelFile() {
+        try {
+            Workbook result = Graph.getExcelFile();
+            System.out.println("Name: " + result.names);
+            System.out.println("ID: " + result.id);
+            System.out.println("Last Modified: " + result.oDataType + "\n");
+        } catch (Exception e) {
+            System.out.println("Error making Graph call");
+            e.printStackTrace();
+        }
     }
 
     private static void initializeGraph(Properties properties) {
         try {
             Graph.initializeGraphForUserAuth(properties,
                     challenge -> System.out.println(challenge.getMessage()));
-        } catch (Exception e)
-        {
+        } catch (Exception e) {
             System.out.println("Error initializing Graph for user auth");
+            System.out.println(e.getMessage());
+        }
+    }
+
+    private static void listUsers() {
+        try {
+            final UserCollectionPage users = Graph.getUsers();
+
+            // Output each user's details
+            for (User user: users.getCurrentPage()) {
+                System.out.println("User: " + user.displayName);
+                System.out.println("  ID: " + user.id);
+                System.out.println("  Email: " + user.mail);
+            }
+
+            final Boolean moreUsersAvailable = users.getNextPage() != null;
+            System.out.println("\nMore users available? " + moreUsersAvailable);
+        } catch (Exception e) {
+            System.out.println("Error getting users");
             System.out.println(e.getMessage());
         }
     }
