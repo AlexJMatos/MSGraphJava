@@ -9,9 +9,7 @@ import java.util.Properties;
 import java.util.Scanner;
 
 import com.microsoft.graph.models.*;
-import com.microsoft.graph.requests.DriveItemCollectionPage;
-import com.microsoft.graph.requests.MessageCollectionPage;
-import com.microsoft.graph.requests.UserCollectionPage;
+import com.microsoft.graph.requests.*;
 
 public class App {
     public static void main(String[] args) {
@@ -161,10 +159,8 @@ public class App {
 
     private static void getExcelFile() {
         try {
-            Workbook result = Graph.getExcelFile();
-            System.out.println("Name: " + result.names);
-            System.out.println("ID: " + result.id);
-            System.out.println("Last Modified: " + result.oDataType + "\n");
+            WorkbookWorksheetCollectionPage result = Graph.getExcelFile("Test API");
+            result.getCurrentPage().forEach(workbookWorksheet -> System.out.println(workbookWorksheet.name));
         } catch (Exception e) {
             System.out.println("Error making Graph call");
             e.printStackTrace();

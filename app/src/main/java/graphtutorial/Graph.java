@@ -9,13 +9,8 @@ import com.azure.core.credential.TokenRequestContext;
 import com.azure.identity.*;
 import com.microsoft.graph.authentication.TokenCredentialAuthProvider;
 import com.microsoft.graph.models.*;
-import com.microsoft.graph.requests.DriveItemCollectionPage;
-import com.microsoft.graph.requests.GraphServiceClient;
-import com.microsoft.graph.requests.MessageCollectionPage;
+import com.microsoft.graph.requests.*;
 
-import com.microsoft.graph.requests.UserCollectionPage;
-import com.nimbusds.oauth2.sdk.ResourceOwnerPasswordCredentialsGrant;
-import com.nimbusds.oauth2.sdk.auth.Secret;
 import okhttp3.Request;
 
 public class Graph {
@@ -140,28 +135,46 @@ public class Graph {
                 .get();
     }
 
-    public static Workbook getExcelFile() {
-        DriveItemCollectionPage folders = _driveClient.me()
+    public static WorkbookWorksheetCollectionPage getExcelFile(String fileName) {
+        DriveItemSearchCollectionPage file = _driveClient.me()
                 .drive()
                 .root()
-                .children()
+                .search(DriveItemSearchParameterSet
+                        .newBuilder()
+                        .withQ(fileName)
+                        .build())
                 .buildRequest()
                 .get();
 
-        assert folders != null;
-        Optional<DriveItem> documentsFolder = folders.getCurrentPage().stream().filter(driveItem -> driveItem.name.equals("Documents")).findAny();
-        if (documentsFolder.isPresent()) {
-            DriveItemCollectionPage documents = documentsFolder.get().children;
-            assert documents != null;
-            Optional<DriveItem> excel = documents.getCurrentPage().stream().filter(driveItem -> driveItem.name.equals("Test API")).findAny();
-            if (excel.isPresent()) {
-                return excel.get().workbook;
-            }
-        }
-        return null;
+        assert file != null;
+        Optional<DriveItem> workbook = file.getCurrentPage().stream().filter(driveItem -> {
+            assert driveItem.name != null;
+            return driveItem.name.equals(String.format("%s.xlsx", fileName));
+        }).findAny();
+
+        // Create session
+        workbook.ifPresent(driveItem -> Objects.requireNonNull(_driveClient.me()
+                        .drive()
+                        .items()
+                        .byId(Objects.requireNonNull(driveItem.id)))
+                .workbook()
+                .createSession(WorkbookCreateSessionParameterSet
+                        .newBuilder()
+                        .withPersistChanges(true)
+                        .build())
+                .buildRequest()
+                .post());
+
+        // Retrieve workbook
+        return workbook.map(driveItem -> Objects.requireNonNull(_driveClient.me()
+                        .drive()
+                        .items()
+                        .byId(Objects.requireNonNull(driveItem.id)))
+                .workbook()
+                .worksheets()
+                .buildRequest()
+                .get()).orElse(null);
     }
-
-
 
     private static void ensureGraphForAppOnlyAuth() throws Exception {
         // Ensure _properties isn't null
